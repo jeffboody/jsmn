@@ -47,10 +47,10 @@ typedef struct
 
 // forward declarations
 static jsmn_object_t* jsmn_object_wrap(jsmn_wrapper_t* jw);
+static void           jsmn_object_delete(jsmn_object_t** _self);
 static jsmn_array_t*  jsmn_array_wrap(jsmn_wrapper_t* jw);
 static void           jsmn_array_delete(jsmn_array_t** _self);
 static jsmn_val_t*    jsmn_val_wrap(jsmn_wrapper_t* jw);
-static void           jsmn_val_delete(jsmn_val_t** _self);
 static jsmn_keyval_t* jsmn_keyval_wrap(jsmn_wrapper_t* jw);
 static void           jsmn_keyval_delete(jsmn_keyval_t** _self);
 
@@ -254,6 +254,28 @@ static jsmn_object_t* jsmn_object_wrap(jsmn_wrapper_t* jw)
 	return NULL;
 }
 
+static void jsmn_object_delete(jsmn_object_t** _self)
+{
+	ASSERT(_self);
+
+	jsmn_object_t* self = *_self;
+	if(self)
+	{
+		cc_listIter_t* iter = cc_list_head(self->list);
+		while(iter)
+		{
+			jsmn_keyval_t* kv;
+			kv = (jsmn_keyval_t*)
+			     cc_list_remove(self->list, &iter);
+			jsmn_keyval_delete(&kv);
+		}
+
+		cc_list_delete(&self->list);
+		FREE(self);
+		*_self = NULL;
+	}
+}
+
 static jsmn_array_t* jsmn_array_wrap(jsmn_wrapper_t* jw)
 {
 	ASSERT(jw);
@@ -412,31 +434,6 @@ static jsmn_val_t* jsmn_val_wrap(jsmn_wrapper_t* jw)
 	return NULL;
 }
 
-static void jsmn_val_delete(jsmn_val_t** _self)
-{
-	ASSERT(_self);
-
-	jsmn_val_t* self = *_self;
-	if(self)
-	{
-		if(self->type == JSMN_TYPE_OBJECT)
-		{
-			jsmn_object_delete(&self->obj);
-		}
-		else if(self->type == JSMN_TYPE_ARRAY)
-		{
-			jsmn_array_delete(&self->array);
-		}
-		else
-		{
-			FREE(self->data);
-		}
-
-		FREE(self);
-		*_self = NULL;
-	}
-}
-
 static jsmn_keyval_t* jsmn_keyval_wrap(jsmn_wrapper_t* jw)
 {
 	ASSERT(jw);
@@ -498,8 +495,7 @@ static void jsmn_keyval_delete(jsmn_keyval_t** _self)
 * public                                                   *
 ***********************************************************/
 
-jsmn_object_t* jsmn_object_new(const char* str,
-                               size_t len)
+jsmn_val_t* jsmn_val_new(const char* str, size_t len)
 {
 	ASSERT(str);
 
@@ -509,10 +505,10 @@ jsmn_object_t* jsmn_object_new(const char* str,
 		return NULL;
 	}
 
-	jsmn_object_t* self = jsmn_object_wrap(jw);
+	jsmn_val_t* self = jsmn_val_wrap(jw);
 	if(self == NULL)
 	{
-		goto fail_obj;
+		goto fail_val;
 	}
 
 	jsmn_wrapper_delete(&jw);
@@ -521,28 +517,31 @@ jsmn_object_t* jsmn_object_new(const char* str,
 	return self;
 
 	// failure
-	fail_obj:
+	fail_val:
 		jsmn_wrapper_delete(&jw);
 	return NULL;
 }
 
-void jsmn_object_delete(jsmn_object_t** _self)
+void jsmn_val_delete(jsmn_val_t** _self)
 {
 	ASSERT(_self);
 
-	jsmn_object_t* self = *_self;
+	jsmn_val_t* self = *_self;
 	if(self)
 	{
-		cc_listIter_t* iter = cc_list_head(self->list);
-		while(iter)
+		if(self->type == JSMN_TYPE_OBJECT)
 		{
-			jsmn_keyval_t* kv;
-			kv = (jsmn_keyval_t*)
-			     cc_list_remove(self->list, &iter);
-			jsmn_keyval_delete(&kv);
+			jsmn_object_delete(&self->obj);
+		}
+		else if(self->type == JSMN_TYPE_ARRAY)
+		{
+			jsmn_array_delete(&self->array);
+		}
+		else
+		{
+			FREE(self->data);
 		}
 
-		cc_list_delete(&self->list);
 		FREE(self);
 		*_self = NULL;
 	}

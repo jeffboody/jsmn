@@ -65,8 +65,7 @@ typedef struct
 	jsmn_val_t* val;
 } jsmn_keyval_t;
 
-jsmn_object_t* jsmn_object_new(const char* str,
-                               size_t len);
-void           jsmn_object_delete(jsmn_object_t** _self);
+jsmn_val_t* jsmn_val_new(const char* str, size_t len);
+void        jsmn_val_delete(jsmn_val_t** _self);
 
 #endif
